@@ -245,6 +245,8 @@ void takeMeasurement(bool forceSdWrite = false)
 	const double valRaw = getAverageAdcValue(0, 10, 100);
 	const float valPercent = (100.0f - (valRaw / 4095.0f) * 100.0f);
 
+	log_d("ADC Avg: %f.0 -> Moisture [%]: %f.2", valRaw, valPercent);
+
 	const auto timeNow = (std::chrono::steady_clock::now() + timeOffset);
 
 	if (displayConnected)
@@ -265,18 +267,23 @@ void setup()
 	Serial.begin(115200);
 	delay(1000);
 
+	setCpuFrequencyMhz(40);
+
 	log_i("========== START ==========");
 
+	// ===== Initialize Analog-to-Digital Converter (ADC) =====
+	getAverageAdcValue(GPIO_NUM_0, 5, 10);
+}
+
+void loop()
+{
 	// ===== Initialize Peripherals (Display & SD-Card) =====
 	initDevices();
 
-	// ===== Initialize Analog-to-Digital Converter (ADC) =====
-	getAverageAdcValue(0, 5, 10);
+	takeMeasurement(false);
 
-	if (USE_DEEP_SLEEP)
+	if (USE_DEEP_SLEEP && sdCardMounted && !displayConnected)
 	{
-		takeMeasurement(false);
-
 		const auto sleepTime = std::chrono::duration_cast<std::chrono::microseconds>(TIME_TO_SLEEP).count();
 		esp_sleep_enable_timer_wakeup(sleepTime);
 
@@ -292,17 +299,6 @@ void setup()
 			digitalWrite(BUILTIN_LED, HIGH);
 
 		esp_deep_sleep_start();
-	}
-}
-
-void loop()
-{
-	if (!USE_DEEP_SLEEP)
-	{
-		// ===== Initialize Peripherals =====
-		initDevices();
-
-		takeMeasurement(false);
 	}
 
 	delay(1000);
